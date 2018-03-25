@@ -22,8 +22,8 @@ formatter = logging.Formatter('%(asctime)s  - %(levelname)s - %(message)s')
 log_level = 'INFO' # default log level.
 logger = None
 
-LATEST_LIVECD_PATH_LINK = "http://distfiles.gentoo.org/releases/amd64/autobuilds/latest-stage3-amd64-nomultilib.txt"
-LATEST_ISO_LINK = "http://distfiles.gentoo.org/releases/amd64/autobuilds/{}"
+REPO = "http://distfiles.gentoo.org/releases/amd64/autobuilds/"
+LATEST_LIVECD_PATH_LINK = REPO + "latest-stage3-amd64-nomultilib.txt"
 
 # binaries required on the host system
 MOUNT_BIN = "/bin/mount"
@@ -58,8 +58,7 @@ class LiveCdBootstrap:
             text = data.decode('utf-8')
             for line in text.split('\n'):
                 if 'tar.xz' in line:
-                    iso_path = LATEST_ISO_LINK.format(line.split(' ')[0])
-                    print(iso_path)
+                    iso_path = join(REPO, line.split(' ')[0])
                     break
             if not iso_path:
                 raise Exception('Latest gentoo iso not found on the server')
@@ -108,23 +107,31 @@ class LiveCdBootstrap:
         chroot.execute_script_in_chroot(
             join(RunUtils.get_scripts_dir(), "install_kernel.sh"))
 
-    def __install_fresh_stage3(self):
+    def install_fresh_stage3(self):
+        stage3_archive = None
         try:
             stage3_archive = self.__get_stage3_archive()
             stage3_dir = self.extract_stage_3(stage3_archive.name)
-            logger.info("Extracted stage3 into {}".format(stage3_dir))
+            if os.path.exists(RunUtils.get_latest_chroot_dir()):
+                os.remove(RunUtils.get_latest_chroot_dir())
+            os.symlink(stage3_dir, RunUtils.get_latest_chroot_dir())
+            logger.info(
+                "Extracted and linked stage3 {} to {}".format(
+                    stage3_dir, RunUtils.get_latest_chroot_dir()))
             return stage3_dir
         except:
             raise
-        else:
-            stage3_archive.close()
+        finally:
+            if stage3_archive:
+                stage3_archive.close()
+                os.remove(stage3_archive.name)
 
     def create_livecd(self):
         stage3_dir = None
         chroot = None
         try:
             if not args.chroot_dir:
-                stage3_dir = self.__install_fresh_stage3()
+                stage3_dir = self.install_fresh_stage3()
             else:
                 stage3_dir = args.chroot_dir
                 logger.info("Use preconfigured stage3 dir {}"
@@ -138,10 +145,8 @@ class LiveCdBootstrap:
             self.generate_initramfs(chroot)
             self.__prepare_iso(chroot)
         except:
-            if chroot:
-                chroot.umount_chroot_dirs()
             raise
-        else:
+        finally:
             self.__cleanup(chroot, stage3_dir)
 
     def __cleanup(self, chroot, stage3_dir):
@@ -248,10 +253,11 @@ class CustomRootFs:
 
 
 class Chroot:
-    def __init__(self, chroot_dir):
+    def __init__(self, chroot_dir, prepare_chroot=True):
         self.chroot_dir = chroot_dir
-        self.mount_core_chroot_dirs()
-        self.copy_file_to_chroot("/etc/resolv.conf")
+        if prepare_chroot:
+            self.mount_core_chroot_dirs()
+            self.copy_file_to_chroot("/etc/resolv.conf")
 
     def mount_core_chroot_dirs(self):
         self.mount_chroot_dir("/sys", join(self.chroot_dir,"sys"))
@@ -376,8 +382,9 @@ class MountUtils:
     def umount_by_path(path):
         exitcode, message = RunUtils.execute_command(
             [UMOUNT_BIN, "-l", path],
-            "Sucessfully umounted {}".format(path),
-        fail_on_error=True)
+            success_message="Successfully umounted {}".format(
+                path),
+            fail_on_error=True)
         if exitcode !=0:
             raise Exception(message)
 
@@ -394,11 +401,15 @@ class MountUtils:
 
 class RunUtils:
     @staticmethod
-    def execute_command(cmd: List[str], success_message=None, print_output=True, fail_on_error=False) -> Tuple[int, str]:
+    def execute_command(
+            cmd: List[str],
+            success_message=None,
+            print_output=True,
+            fail_on_error=False) -> Tuple[int, str]:
         try:
             str_cmd = ' '.join(cmd)
             logger.debug("Execute cmd: {}".format(str_cmd))
-            out  = check_output(
+            out = check_output(
                 cmd,
                 universal_newlines=True,
                 stderr=subprocess.STDOUT)
@@ -456,6 +467,14 @@ class RunUtils:
             RunUtils.execute_command(cmd, fail_on_error=True)
         return portage_dir
 
+    @staticmethod
+    def get_latest_chroot_dir():
+        latest = join(args.temp_dir, "latest_chroot")
+        if not os.path.exists(latest):
+            raise Exception(
+                "latest_chroot symlink must exist and point to the"
+                "stage3 dir when --use_latest_chroot used")
+        return os.path.realpath(latest)
 
 class LogUtils:
 
@@ -496,10 +515,29 @@ class Main:
                             ])
                             )
 
+        parser.add_argument("--just_extract_stage3",
+                            action="store_true",
+                            help='\n'.join([
+                                'Only extracts stage3 archive either provided',
+                                'with --local_stage3_archive or downloads ',
+                                'latest one from gentoo.org'
+                            ])
+                            )
+
         parser.add_argument("--chroot_dir",
                             help='\n'.join([
                                 'Use provided chroot dir',
                                 'instead of download and extract latest stage3'
+                            ])
+                            )
+
+        parser.add_argument("--use_latest_chroot",
+                            action="store_true",
+                            default=False,
+                            help=
+                            '\n'.join([
+                                'If specified will point chroot dir to temp_dir/latest_chroot '
+                                'latest_chroot symlink created during extracting stage3',
                             ])
                             )
 
@@ -614,11 +652,18 @@ class Main:
 
     def execute(self):
         self.check_binaries_exist()
-
+        if args.use_latest_chroot:
+            if args.chroot_dir:
+                logger.warning(
+                    "specified --chroot_dir will be ignored because"
+                    "--use_latest_chroot has priority over it"
+                )
+            args.chroot_dir = RunUtils.get_latest_chroot_dir()
         if args.umount_chroot:
             if not args.chroot_dir:
                 raise Exception("Please specify chroot dir")
-            Chroot(args.chroot_dir).umount_chroot_dirs()
+            chroot = Chroot(args.chroot_dir, prepare_chroot=False)
+            chroot.umount_chroot_dirs()
             return
         if args.mount_chroot:
             if not args.chroot_dir:
@@ -636,9 +681,13 @@ class Main:
             bootstrap = LiveCdBootstrap()
             bootstrap.generate_initramfs(Chroot(args.chroot_dir))
             return
-
         if not args.temp_dir:
             raise Exception("Please specify --temp_dir")
+
+        if args.just_extract_stage3:
+            LiveCdBootstrap().install_fresh_stage3()
+            return
+
         if not args.iso_image:
             args.iso_image=join(args.temp_dir, "pulseaudio.iso")
         bootstrap = LiveCdBootstrap()

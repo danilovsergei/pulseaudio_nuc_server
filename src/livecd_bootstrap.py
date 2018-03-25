@@ -649,7 +649,7 @@ class Main:
 
 
 if __name__ == "__main__":
-    logger = LogUtils.getLogger('DEBUG')
+    logger = LogUtils.getLogger(log_level)
     main = Main()
     args = main.parse_ags()
     main.execute()

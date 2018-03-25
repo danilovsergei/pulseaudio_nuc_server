@@ -2,19 +2,19 @@
 import os
 import logging
 import subprocess
-from subprocess import call, check_output
+from subprocess import check_output
 from typing import List
 from typing import Tuple
 from  urllib.error import HTTPError
 import tempfile
 import shutil
 import tarfile
-from os.path import isfile, join
+from os.path import join
 import urllib.request
 import codecs
 from subprocess import Popen, PIPE, STDOUT
 import sys
-from shutil import copyfile, copytree
+from shutil import copyfile
 import argparse
 from os.path import basename
 
@@ -114,7 +114,9 @@ class LiveCdBootstrap:
             stage3_dir = self.extract_stage_3(stage3_archive.name)
             logger.info("Extracted stage3 into {}".format(stage3_dir))
             return stage3_dir
-        finally:
+        except:
+            raise
+        else:
             stage3_archive.close()
 
     def create_livecd(self):

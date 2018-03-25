@@ -1,0 +1,22 @@
+[connection]
+id=Local ethernet
+uuid=0721dce0-bfa0-376f-8189-263ac670fad4
+type=ethernet
+autoconnect-priority=0
+permissions=
+
+[ethernet]
+auto-negotiate=true
+mac-address=28:D2:44:00:C1:A0
+mac-address-blacklist=
+
+[ipv4]
+address1=192.168.1.3/24
+dns-search=
+may-fail=false
+method=manual
+
+[ipv6]
+addr-gen-mode=stable-privacy
+dns-search=
+method=ignore

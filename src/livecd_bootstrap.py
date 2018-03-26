@@ -143,7 +143,7 @@ class LiveCdBootstrap:
             self.__install_core_packages(chroot)
             self.__install_packages(chroot)
             self.generate_initramfs(chroot)
-            self.__prepare_iso(chroot)
+            self.generate_iso(chroot)
         except:
             raise
         finally:
@@ -198,7 +198,7 @@ class LiveCdBootstrap:
             join(final_image_dir, "boot/initrd")
         )
 
-    def __prepare_iso(self, chroot):
+    def generate_iso(self, chroot):
         if args.skip_making_iso:
             return
         rootfs_dir = join(self.os_tmp_dir, "rootfs")
@@ -621,6 +621,13 @@ class Main:
                             ])
                             )
 
+        parser.add_argument("--generate_iso",
+                            action="store_true",
+                            help='\n'.join([
+                                'Just generates new iso image if specified',
+                            ])
+                            )
+
         parser.add_argument("--umount_chroot",
                             action="store_true",
                             help='\n'.join([
@@ -690,6 +697,10 @@ class Main:
 
         if not args.iso_image:
             args.iso_image=join(args.temp_dir, "pulseaudio.iso")
+
+        if args.generate_iso:
+            LiveCdBootstrap().generate_iso(Chroot(args.chroot_dir))
+            return
         bootstrap = LiveCdBootstrap()
         bootstrap.create_livecd()
 

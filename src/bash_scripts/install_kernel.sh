@@ -12,3 +12,5 @@ make install
 
 #Old modules rebuild. will work only in Gentoo Linux
 emerge @module-rebuild
+
+emerge -u sys-kernel/linux-firmware

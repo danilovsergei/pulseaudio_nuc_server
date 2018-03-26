@@ -26,11 +26,12 @@ REPO = "http://distfiles.gentoo.org/releases/amd64/autobuilds/"
 LATEST_LIVECD_PATH_LINK = REPO + "latest-stage3-amd64-nomultilib.txt"
 
 # binaries required on the host system
-MOUNT_BIN = "/bin/mount"
-UMOUNT_BIN = "/bin/umount"
-MKSQUASHFS = "/usr/bin/mksquashfs"
-GRUB_MKRESCUE = "/usr/bin/grub-mkrescue"
-GIT = "/usr/bin/git"
+MOUNT_BIN = "mount"
+UMOUNT_BIN = "umount"
+MKSQUASHFS = "mksquashfs"
+GRUB_MKRESCUE = "grub-mkrescue"
+GIT = "git"
+CHROOT="chroot"
 
 class LiveCdBootstrap:
     def __init__(self):
@@ -112,9 +113,14 @@ class LiveCdBootstrap:
         try:
             stage3_archive = self.__get_stage3_archive()
             stage3_dir = self.extract_stage_3(stage3_archive.name)
-            if os.path.exists(RunUtils.get_latest_chroot_dir()):
-                os.remove(RunUtils.get_latest_chroot_dir())
-            os.symlink(stage3_dir, RunUtils.get_latest_chroot_dir())
+            # check separately because broken symlink not identified by os.path.exists
+            if os.path.islink(RunUtils.get_latest_chroot_symlink()):
+              logger.info("Link is link: {}".format(RunUtils.get_latest_chroot_symlink()))
+              os.unlink(RunUtils.get_latest_chroot_symlink())              
+            elif os.path.exists(RunUtils.get_latest_chroot_symlink()):
+             os.remove(RunUtils.get_latest_chroot_symlink())
+
+            os.symlink(stage3_dir, RunUtils.get_latest_chroot_symlink())
             logger.info(
                 "Extracted and linked stage3 {} to {}".format(
                     stage3_dir, RunUtils.get_latest_chroot_dir()))
@@ -288,7 +294,7 @@ class Chroot:
 
     def execute_command_in_chroot(self, cmd: str) -> str:
         chroot_cmd = " ".join([
-            "/usr/bin/chroot", self.chroot_dir, "/bin/bash",
+            CHROOT, self.chroot_dir, "/bin/bash",
             "-c", "\"" +cmd + "\""
         ])
         logger.debug("Execute cmd: %s", chroot_cmd)
@@ -466,14 +472,40 @@ class RunUtils:
                  portage_dir]
             RunUtils.execute_command(cmd, fail_on_error=True)
         return portage_dir
+    
+    @staticmethod
+    def which(program):
+        def is_exe(fpath):
+            return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+        fpath, fname = os.path.split(program)
+        if fpath:
+            if is_exe(program):
+                return program
+        else:
+            for path in os.environ["PATH"].split(os.pathsep):
+                exe_file = os.path.join(path, program)
+                if is_exe(exe_file):
+                    return exe_file
+
+        return None
+
+
+    @staticmethod
+    def get_latest_chroot_symlink():
+        """Just return latest_chroot symlink without checking
+        if it exists"""
+        return join(args.temp_dir, "latest_chroot")
 
     @staticmethod
     def get_latest_chroot_dir():
-        latest = join(args.temp_dir, "latest_chroot")
+        """Resolves latest_chroot symlink to real path
+        Complains if it does not exist"""        
+        latest = RunUtils.get_latest_chroot_symlink()
         if not os.path.exists(latest):
             raise Exception(
                 "latest_chroot symlink must exist and point to the"
-                "stage3 dir when --use_latest_chroot used")
+                "stage3")
         return os.path.realpath(latest)
 
 class LogUtils:
@@ -653,9 +685,10 @@ class Main:
         self.__file_exists(GIT)
 
     def __file_exists(self, file):
-        if not os.path.exists(file):
+        full_command = RunUtils.which(file)
+        if not full_command or not os.path.exists(full_command):
             raise Exception(
-                "{} does not exist on the host system".format(file))
+                "'{}' command does not exist on the host system".format(file))
 
     def execute(self):
         self.check_binaries_exist()

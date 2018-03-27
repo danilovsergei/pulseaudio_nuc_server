@@ -44,7 +44,7 @@ class LiveCdBootstrap:
     def extract_stage_3(self, stage_archive):
         # TODO replace with tempfile.TemporaryDirectory once don't need to debug
         temp_dir = tempfile.mkdtemp(suffix="pulse_livecd", dir=self.os_tmp_dir)
-        logger.debug('Extract stage3 into ' + temp_dir)
+        logger.info('Extract stage3 into ' + temp_dir)
         with tarfile.open(stage_archive) as archive_file:
             archive_file.extractall(temp_dir)
         logger.info("Directory content extracted")
@@ -80,6 +80,7 @@ class LiveCdBootstrap:
                         .format(stage3_archive.name))
         else:
             iso_link = self.get_iso_link()
+            logger.info("Download stage3 from {}", iso_link)
             stage3_archive = self.download_stage3(iso_link)
         return stage3_archive
 

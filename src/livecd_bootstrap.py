@@ -81,7 +81,7 @@ class LiveCdBootstrap:
                         .format(stage3_archive.name))
         else:
             iso_link = self.get_iso_link()
-            logger.info("Download stage3 from {}", iso_link)
+            logger.info("Download stage3 from %s", iso_link)
             stage3_archive = self.download_stage3(iso_link)
         return stage3_archive
 
@@ -136,6 +136,7 @@ class LiveCdBootstrap:
     def create_livecd(self):
         stage3_dir = None
         chroot = None
+        bootstrap_succeed = False
         try:
             if not args.chroot_dir:
                 stage3_dir = self.install_fresh_stage3()
@@ -151,17 +152,22 @@ class LiveCdBootstrap:
             self.__install_packages(chroot)
             self.generate_initramfs(chroot)
             self.generate_iso(chroot)
+            bootstrap_succeed = True
         except:
             raise
         finally:
-            self.__cleanup(chroot, stage3_dir)
+            # leave chroot dir in case if something went wrong
+            self.__cleanup(
+                chroot, stage3_dir,
+                remove_chroot=bootstrap_succeed)
 
-    def __cleanup(self, chroot, stage3_dir):
+    def __cleanup(self, chroot, stage3_dir, remove_chroot=False):
         # cleanup stage3 dir only if user didnt provide its own dir
         if not args.chroot_dir and stage3_dir:
             if chroot:
                 chroot.umount_chroot_dirs()
-            if not args.skip_cleanup:
+            if not args.skip_cleanup and remove_chroot:
+                logger.info("Cleanup chroot dir %s", stage3_dir)
                 shutil.rmtree(stage3_dir)
 
     def __bootstrap_rootfs(self, chroot):

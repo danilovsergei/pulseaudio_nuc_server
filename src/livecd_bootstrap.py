@@ -116,7 +116,6 @@ class LiveCdBootstrap:
             stage3_dir = self.extract_stage_3(stage3_archive.name)
             # check separately because broken symlink not identified by os.path.exists
             if os.path.islink(RunUtils.get_latest_chroot_symlink()):
-              logger.info("Link is link: {}".format(RunUtils.get_latest_chroot_symlink()))
               os.unlink(RunUtils.get_latest_chroot_symlink())              
             elif os.path.exists(RunUtils.get_latest_chroot_symlink()):
              os.remove(RunUtils.get_latest_chroot_symlink())

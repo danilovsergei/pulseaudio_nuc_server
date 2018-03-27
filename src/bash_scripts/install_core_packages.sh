@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+egencache --repo=gentoo --update
 emerge -u app-portage/eix
 chmod o+w /var/cache/eix
 eix-update

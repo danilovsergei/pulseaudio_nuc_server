@@ -9,17 +9,16 @@ from  urllib.error import HTTPError
 import tempfile
 import shutil
 import tarfile
-from os.path import join
+from os.path import join, exists, basename
 import urllib.request
 import codecs
 from subprocess import Popen, PIPE, STDOUT
 import sys
 from shutil import copyfile
 import argparse
-from os.path import basename
 
 formatter = logging.Formatter('%(asctime)s  - %(levelname)s - %(message)s')
-log_level = 'INFO' # default log level.
+default_log_level = 'INFO' # default log level.
 logger = None
 
 REPO = "http://distfiles.gentoo.org/releases/amd64/autobuilds/"
@@ -212,7 +211,9 @@ class LiveCdBootstrap:
 
     def generate_iso(self, chroot):
         if args.skip_making_iso:
+            logger.info("skip ISO generation due to --skip_making_iso")
             return
+        logger.info("Generate final ISO at {}".format(args.iso_image))
         rootfs_dir = join(self.os_tmp_dir, "rootfs")
         rootfs_image = join(rootfs_dir, 'LiveOS', 'rootfs.img')
 
@@ -236,10 +237,21 @@ class LiveCdBootstrap:
             [MKSQUASHFS, rootfs_dir, final_image],
             fail_on_error=True)
 
-        RunUtils.execute_command(
+        #cleanup old image
+        if exists(args.iso_image):
+            os.remove(args.iso_image)
+
+        code, output = RunUtils.execute_command(
             [GRUB_MKRESCUE, "-o", args.iso_image, final_image_dir,
              "-volid", "PULSEAUDIO_LIVE"],
-            fail_on_error=True)
+            fail_on_error=True, print_output=True)
+
+        # check that iso was actually created
+        # because grub-mkrescue does not print error code on error.
+        if exists(args.iso_image):
+            logger.info("ISO sucessfully generated")
+        else:
+            raise Exception("Failed to create iso image {}".format(output))
 
     def __cleanup_dir(self, directory):
         if os.path.exists(directory):
@@ -315,7 +327,6 @@ class Chroot:
             logger.info('output: {}'.format(line))
         proc.terminate()
         proc.wait(timeout=0.2)
-        logger.info("code = %s", proc.returncode)
         if proc.returncode != 0:
             raise Exception(
                 "Failed to execute command in {} chroot: {} , {}"
@@ -507,17 +518,23 @@ class RunUtils:
     def get_latest_chroot_dir():
         """Resolves latest_chroot symlink to real path
         Complains if it does not exist"""        
-        latest = RunUtils.get_latest_chroot_symlink()
-        if not os.path.exists(latest):
+        symlink = RunUtils.get_latest_chroot_symlink()
+        if not os.path.exists(symlink):
             raise Exception(
-                "latest_chroot symlink must exist and point to the"
-                "stage3")
-        return os.path.realpath(latest)
+                "{} symlink must exist and "
+                "point to the existing stage3 path".format(symlink))
+        return os.path.realpath(symlink)
+        
 
 class LogUtils:
 
     @staticmethod
-    def getLogger(log_level):
+    def getLogger():
+        if args.log_level:
+            log_level = args.log_level
+        else:
+            log_level = default_log_level
+
         file_logger = logging.getLogger('file_logger')
         file_logger.setLevel(log_level)
         fh = logging.FileHandler('livecd_bootstrap.log', 'w')
@@ -681,6 +698,12 @@ class Main:
                                 'Requires --chroot_dir parameter',
                             ])
                             )
+
+        parser.add_argument("--log_level",
+                            help='\n'.join([
+                                'Log level either INFO, WARNING, DEBUG',
+                            ])
+                            )
         return parser.parse_args()
 
     def check_binaries_exist(self):
@@ -705,6 +728,7 @@ class Main:
                     "--use_latest_chroot has priority over it"
                 )
             args.chroot_dir = RunUtils.get_latest_chroot_dir()
+            logger.info("use {} dir".format(args.chroot_dir))
         if args.umount_chroot:
             if not args.chroot_dir:
                 raise Exception("Please specify chroot dir")
@@ -738,17 +762,23 @@ class Main:
             args.iso_image=join(args.temp_dir, "pulseaudio.iso")
 
         if args.generate_iso:
+            if not args.chroot_dir:
+                raise Exception(
+                    "--chroot_dir must be provided "
+                    "or either --use_latest_chroot used")
             LiveCdBootstrap().generate_iso(Chroot(args.chroot_dir))
             return
+        
         bootstrap = LiveCdBootstrap()
         bootstrap.create_livecd()
-
+        
         CustomRootFs(RunUtils.get_pulseaudio_rootfs_dir())\
             .generate_custom_root_fs()
 
 
 if __name__ == "__main__":
-    logger = LogUtils.getLogger(log_level)
     main = Main()
     args = main.parse_ags()
+    
+    logger = LogUtils.getLogger()
     main.execute()

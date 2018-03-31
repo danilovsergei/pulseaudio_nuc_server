@@ -221,13 +221,14 @@ class LiveCdBootstrap:
 
         self.__cleanup_dir(final_image_dir)
         self.__cleanup_dir(rootfs_dir)
+        logger.info(
+            "Generate new ISO image to {}".format(args.iso_image))
 
         os.makedirs(os.path.dirname(final_image))
         os.makedirs(os.path.dirname(rootfs_image))
 
         self.__copy_kernel_files(chroot, final_image_dir)
         chroot.umount_chroot_dirs()
-
         RunUtils.execute_command(
             [MKSQUASHFS, chroot.get_chroot_dir(), rootfs_image],
             fail_on_error=True)
@@ -240,6 +241,8 @@ class LiveCdBootstrap:
             [GRUB_MKRESCUE, "-o", args.iso_image, final_image_dir,
              "-volid", "PULSEAUDIO_LIVE"],
             fail_on_error=True)
+        logger.info(
+            "Image generated {}".format(args.iso_image))
 
     def __cleanup_dir(self, directory):
         if os.path.exists(directory):

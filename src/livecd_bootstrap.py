@@ -192,7 +192,7 @@ class LiveCdBootstrap:
         grub_dir = join(final_image_dir, 'boot/grub')
         os.makedirs(grub_dir)
         copyfile(
-            join(RunUtils.get_configs_dir(), "grub.cfg"),
+            join(RunUtils.get_configs_dir(), "inside_iso_grub.cfg"),
             join(grub_dir, "grub.cfg")
         )
         kver = chroot.get_kernel_version()

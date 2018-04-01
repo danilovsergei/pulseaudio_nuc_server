@@ -1,6 +1,0 @@
-# Created by .ignore support plugin (hsz.mobi)
-/geonix_rootfs/
-/src/create_iso_from_existing_chroot.sh
-/src/livecd_bootstrap.log
-/src/umount_chroot.sh
-/.idea/

@@ -8,7 +8,6 @@ from typing import Tuple
 from  urllib.error import HTTPError
 import tempfile
 import shutil
-import tarfile
 from os.path import join, exists, basename
 import urllib.request
 import codecs
@@ -16,6 +15,8 @@ from subprocess import Popen, PIPE, STDOUT
 import sys
 from shutil import copyfile
 import argparse
+import tarfile
+from datetime import datetime
 
 formatter = logging.Formatter('%(asctime)s  - %(levelname)s - %(message)s')
 default_log_level = 'INFO' # default log level.
@@ -29,17 +30,25 @@ MOUNT_BIN = "mount"
 UMOUNT_BIN = "umount"
 MKSQUASHFS = "mksquashfs"
 GRUB_MKRESCUE = "grub-mkrescue"
+GRUB_MKIMAGE = "grub-mkimage"
 GIT = "git"
 CHROOT="chroot"
+
+# include more modules than needed to be future proof
+GRUB_MKIMAGE_MODULES = [
+    "fat", "iso9660", "part_gpt", "part_msdos", "normal", "boot",
+    "linux", "configfile", "loopback", "chain", "efifwsetup", "efi_gop",
+    "efi_uga", "ls", "search", "search_label", "search_fs_uuid",
+    "search_fs_file", "gfxterm", "gfxterm_background",
+    "gfxterm_menu", "test", "all_video", "loadenv", "exfat",
+    "ext2", "ntfs", "btrfs", "hfsplus", "udf"
+]
 
 class LiveCdBootstrap:
     def __init__(self):
         self.os_tmp_dir = args.temp_dir
-
-        if not os.path.exists(RunUtils.get_kernel_dir()):
-            os.mkdir(RunUtils.get_kernel_dir())
-        if not os.path.exists(RunUtils.get_boot_dir()):
-            os.mkdir(RunUtils.get_boot_dir())
+        os.makedirs(RunUtils.get_kernel_dir(), exist_ok=True)
+        os.makedirs(RunUtils.get_boot_dir(), exist_ok=True)
 
     def extract_stage_3(self, stage_archive):
         # TODO replace with tempfile.TemporaryDirectory once don't need to debug
@@ -149,7 +158,7 @@ class LiveCdBootstrap:
             self.__install_core_packages(chroot)
             self.__install_packages(chroot)
             self.generate_initramfs(chroot)
-            self.generate_iso(chroot)
+            self.generate_usb_archive(chroot)
             bootstrap_succeed = True
         except:
             raise
@@ -209,17 +218,15 @@ class LiveCdBootstrap:
             join(final_image_dir, "boot/initrd")
         )
 
-    def generate_iso(self, chroot):
-        if args.skip_making_iso:
-            logger.info("skip ISO generation due to --skip_making_iso")
-            return
-        logger.info("Generate final ISO at {}".format(args.iso_image))
+    def __make_squashfs_image(self, chroot):
         rootfs_dir = join(self.os_tmp_dir, "rootfs")
         rootfs_image = join(rootfs_dir, 'LiveOS', 'rootfs.img')
 
         final_image_dir =  join(self.os_tmp_dir, "iso_dir")
         final_image = join(final_image_dir, 'LiveOS', 'squashfs.img')
 
+        logger.info(
+            "Create squashfs file structure at {}".format(final_image_dir))
         self.__cleanup_dir(final_image_dir)
         self.__cleanup_dir(rootfs_dir)
 
@@ -236,22 +243,98 @@ class LiveCdBootstrap:
         RunUtils.execute_command(
             [MKSQUASHFS, rootfs_dir, final_image],
             fail_on_error=True)
+        return final_image_dir
 
-        #cleanup old image
-        if exists(args.iso_image):
-            os.remove(args.iso_image)
+    def generate_iso_image(self, chroot):
+        if args.skip_making_iso:
+            logger.info("skip image generation due to --skip_making_iso")
+            return
+        if not exists(RunUtils.get_usbimage_dir()):
+            os.mkdir(RunUtils.get_usbimage_dir())
+        iso_image = join(RunUtils.get_usbimage_dir(), "pulseaudio.iso")
+        logger.info("Create ISO image at {}".format(iso_image))
+
+        squashfs_image_dir = self.__make_squashfs_image(chroot)
 
         code, output = RunUtils.execute_command(
-            [GRUB_MKRESCUE, "-o", args.iso_image, final_image_dir,
+            [GRUB_MKRESCUE, "-o", iso_image, squashfs_image_dir,
              "-volid", "PULSEAUDIO_LIVE"],
             fail_on_error=True, print_output=True)
 
         # check that iso was actually created
         # because grub-mkrescue does not print error code on error.
-        if exists(args.iso_image):
+        if exists(iso_image):
             logger.info("ISO sucessfully generated")
         else:
             raise Exception("Failed to create iso image {}".format(output))
+
+    def __make_usb_archive(self, usb_archive):
+        logger.info("Create usbimage archive at {}".format(usb_archive))
+        if exists(usb_archive):
+            os.remove(usb_archive)
+        with tarfile.open(usb_archive, "w:xz") as tar:
+            tar.add(
+                RunUtils.get_usbimage_dir(),
+                arcname=os.path.sep
+            )
+
+    def generate_usb_image(self, chroot, generate_archive=True):
+        if args.skip_generate_usb_image:
+            logger.info("Skip creation of usb root file system")
+
+        logger.info(
+            "Create usb root filesystem at {}".format(
+                RunUtils.get_usbimage_dir()))
+        timestamp = datetime.now().strftime('%Y-%m-%dT%H_%M')
+        usb_archive = join(
+            self.os_tmp_dir,
+            "pulseaudio_nucserver_{}.tar.xz".format(timestamp))
+
+        #cleanup old image
+        if exists(RunUtils.get_usbimage_dir()):
+            shutil.rmtree(RunUtils.get_usbimage_dir())
+        os.mkdir(RunUtils.get_usbimage_dir())
+
+        self.generate_iso_image(chroot)
+        CustomRootFs(
+            RunUtils.get_pulseaudio_rootfs_dir()).generate_custom_root_fs()
+        self.__generate_efi_boot()
+        logger.info(
+            "Successfully created usb root filesystem at {}".format(
+                RunUtils.get_usbimage_dir()))
+        if not generate_archive or args.skip_generate_usb_image_archive:
+            logger.info("Skip usbimage archive generation")
+            return
+        self.__make_usb_archive(usb_archive)
+
+    def __generate_efi_boot(self):
+        efi_suffix = "EFI/BOOT"
+        efi_dir = join(RunUtils.get_usbimage_dir(), efi_suffix)
+        efi_app = join(efi_dir, "bootx64.efi")
+        output_grub_cfg = join(efi_dir, "grub.cfg")
+
+        if exists(efi_dir):
+            shutil.rmtree(efi_dir)
+        os.makedirs(efi_dir)
+
+        cmd = [
+            GRUB_MKIMAGE,
+            "-o", efi_app,
+            "-O", "x86_64-efi", # no reason to support 32 bits platforms
+            "-p", "/" + efi_suffix # points to grub.cfg location on the usb
+        ]
+        cmd.extend(GRUB_MKIMAGE_MODULES)
+
+        RunUtils.execute_command(cmd, fail_on_error=True)
+        if not exists(efi_app):
+            raise Exception(
+                "Failed to create efi application at {}".format(efi_app))
+        logger.info(
+            "Successfully created efi application at {}".format(efi_app))
+
+        copyfile(
+            join(RunUtils.get_configs_dir(), "loadiso_grub.cfg"),
+            output_grub_cfg)
 
     def __cleanup_dir(self, directory):
         if os.path.exists(directory):
@@ -264,11 +347,14 @@ class CustomRootFs:
         self.os_tmp_dir = args.temp_dir
         self.rootfs_path = rootfs_path
 
-    def generate_custom_root_fs(self):
+    def generate_custom_root_fs(self, out_dir=None):
         if args.skip_custom_rootfs:
             return
+        if not out_dir:
+            out_dir = RunUtils.get_usbimage_dir()
+
         archive_name = join(
-            self.os_tmp_dir, '00-pulseaudio_custom_rootfs.tar.bz2')
+            out_dir, '00-pulseaudio_custom_rootfs.tar.bz2')
         cmd = ["tar", "-cjvf", archive_name, "-C", self.rootfs_path, "."]
         RunUtils.execute_command(
             cmd,
@@ -477,6 +563,10 @@ class RunUtils:
         return join(args.temp_dir, "boot")
 
     @staticmethod
+    def get_usbimage_dir():
+        return join(args.temp_dir, "usbimage")
+
+    @staticmethod
     def get_portage_dir():
         if args.portage_dir:
             return args.portage_dir
@@ -614,12 +704,6 @@ class Main:
                                 'compile latest gentoo-sources kernel.',
                             ])
                             )
-        parser.add_argument("--iso_image",
-                            help='\n'.join([
-                                'Final generated iso image path',
-                            ])
-                            )
-
         parser.add_argument("--portage_dir",
                             help='\n'.join([
                                 'Will be mounted as portage to chroot'
@@ -676,6 +760,41 @@ class Main:
                             ])
                             )
 
+        parser.add_argument("--generate_usb_image_dir",
+                            action="store_true",
+                            help='\n'.join([
+                                'Generates full usb root directory',
+                                'which is ready to copy to usb flash',
+                                'Add --generate_usb_image_archive to also',
+                                'create archive'
+                            ])
+                            )
+
+        parser.add_argument("--generate_usb_image_archive",
+                            action="store_true",
+                            help='\n'.join([
+                                'Generates archive with full usb root directory',
+                                'which is ready to extract on usb flash'
+                            ])
+                            )
+
+        parser.add_argument("--skip_generate_usb_image",
+                            action="store_true",
+                            help='\n'.join([
+                                'Usb root file structure generation will be skipped',
+                                'if specified',
+                            ])
+                            )
+
+        parser.add_argument("--skip_generate_usb_image_archive",
+                            action="store_true",
+                            help='\n'.join([
+                                'Usb root file structure will be generated ',
+                                'at build directory.',
+                                'However final archive generation will be skipped',
+                            ])
+                            )
+
         parser.add_argument("--generate_iso",
                             action="store_true",
                             help='\n'.join([
@@ -711,16 +830,19 @@ class Main:
         self.__file_exists(UMOUNT_BIN)
         self.__file_exists(MKSQUASHFS)
         self.__file_exists(GRUB_MKRESCUE)
+        self.__file_exists(GRUB_MKIMAGE)
         self.__file_exists(GIT)
 
     def __file_exists(self, file):
         full_command = RunUtils.which(file)
         if not full_command or not os.path.exists(full_command):
             raise Exception(
-                "'{}' command does not exist on the host system".format(file))
+                "'{}' command does not exist on the host system"
+                    .format(file))
 
     def execute(self):
         self.check_binaries_exist()
+
         if args.use_latest_chroot:
             if args.chroot_dir:
                 logger.warning(
@@ -729,6 +851,7 @@ class Main:
                 )
             args.chroot_dir = RunUtils.get_latest_chroot_dir()
             logger.info("use {} dir".format(args.chroot_dir))
+
         if args.umount_chroot:
             if not args.chroot_dir:
                 raise Exception("Please specify chroot dir")
@@ -745,12 +868,7 @@ class Main:
             CustomRootFs(args.generate_custom_rootfs) \
                 .generate_custom_root_fs()
             return
-        if args.generate_initramfs:
-            if not args.chroot_dir:
-                raise Exception("Please specify chroot dir")
-            bootstrap = LiveCdBootstrap()
-            bootstrap.generate_initramfs(Chroot(args.chroot_dir))
-            return
+
         if not args.temp_dir:
             raise Exception("Please specify --temp_dir")
 
@@ -758,23 +876,37 @@ class Main:
             LiveCdBootstrap().install_fresh_stage3()
             return
 
-        if not args.iso_image:
-            args.iso_image=join(args.temp_dir, "pulseaudio.iso")
+        if not args.chroot_dir:
+            raise Exception(
+                "--chroot_dir must be provided "
+                "or either --use_latest_chroot used")
+
+        # add targets using chroot below this point
+        bootstrap = LiveCdBootstrap()
+        chroot = Chroot(args.chroot_dir)
+
+        if args.generate_initramfs:
+            bootstrap.generate_initramfs(chroot)
+            return
 
         if args.generate_iso:
-            if not args.chroot_dir:
-                raise Exception(
-                    "--chroot_dir must be provided "
-                    "or either --use_latest_chroot used")
-            LiveCdBootstrap().generate_iso(Chroot(args.chroot_dir))
+            bootstrap.generate_iso_image(chroot)
             return
+
+        if args.generate_usb_image_dir \
+                and not args.generate_usb_image_archive:
+            LiveCdBootstrap().generate_usb_image(
+                chroot, generate_archive=False)
+            return
+
+        if args.generate_usb_image_archive:
+            LiveCdBootstrap().generate_usb_image(
+                chroot, generate_archive=True)
+            return
+
         
         bootstrap = LiveCdBootstrap()
         bootstrap.create_livecd()
-        
-        CustomRootFs(RunUtils.get_pulseaudio_rootfs_dir())\
-            .generate_custom_root_fs()
-
 
 if __name__ == "__main__":
     main = Main()

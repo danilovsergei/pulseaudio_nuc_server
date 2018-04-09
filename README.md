@@ -14,11 +14,6 @@ Some of the main features:
    - Announce itself via [avahi zeroconf](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/Network/#index1h1)\
      All clients will be able to see and redirect sound output. Pulseaudio server will look somewhat like that over network:\
      <img src="https://github.com/danilovsergei/pulseaudio_nuc_server/blob/master/wiki/images/avahi_clients.png" width="30%" height="30%">
-   - Defaults output through 5.1 hdmi on nuc. Assumption is nuc connected to some multichannel receiver as shown on the diagram.
-   
-   
-   
-   
-   
-
-
+   - Defaults output through 5.1 hdmi on nuc. Assumption is nuc connected to some multichannel receiver as shown on the diagram.\
+   - Designed to receive uncompressed multichannel audio
+3. Works both over wifi or ethernet connection depending on provided configuration

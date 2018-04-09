@@ -51,7 +51,6 @@ class LiveCdBootstrap:
         os.makedirs(RunUtils.get_boot_dir(), exist_ok=True)
 
     def extract_stage_3(self, stage_archive):
-        # TODO replace with tempfile.TemporaryDirectory once don't need to debug
         temp_dir = tempfile.mkdtemp(suffix="pulse_livecd", dir=self.os_tmp_dir)
         logger.info('Extract stage3 into ' + temp_dir)
         with tarfile.open(stage_archive) as archive_file:
@@ -391,8 +390,7 @@ class Chroot:
                 MountUtils.umount_by_path(mount[1])
 
     def mount_chroot_dir(self, source, target):
-        if not os.path.exists(target):
-            os.makedirs(target)
+        os.makedirs(target, exist_ok=True)
         if not MountUtils.is_mounted(target):
             MountUtils.mount(source, target)
 

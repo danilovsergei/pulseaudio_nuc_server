@@ -11,10 +11,14 @@ Distribution has features:
 1. It automatically starts Pulseaudio server right after given ISO boots on nuc.
 #TODO: add an explanation for network configuration
 2. Pulseaudio server already configured to:
-   - Announce itself via [avahi zeroconf]     (https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/Network/#index1h1). All clients will be able to see    and redirect sound output.
-  pulseaudio server will look somewhat like that over network:
-  <img src="https://github.com/danilovsergei/pulseaudio_nuc_server/blob/master/wiki/images/avahi_clients.png" width="30%" height="30%">
-   - default output through 5.1 hdmi on nuc. Assumption is nuc connected to some multichannel receiver as shown on the diagram.
+   - Announce itself via [avahi zeroconf](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/Network/#index1h1)\
+     All clients will be able to see and redirect sound output. Pulseaudio server will look somewhat like that over network:\
+     <img src="https://github.com/danilovsergei/pulseaudio_nuc_server/blob/master/wiki/images/avahi_clients.png" width="30%" height="30%">
+   - Defaults output through 5.1 hdmi on nuc. Assumption is nuc connected to some multichannel receiver as shown on the diagram.
+   
+   
+   
+   
    
 
 

@@ -1,13 +1,13 @@
 ## What is pulseaudio nuc server
-It's linux distribution which designed for intel nuc.\
-And its only purpose is to server audio over network.
+Its linux distribution which designed for intel nuc.\
+With only purpose to serve audio over network.
 
 It has pulseaudio server installed which is responsible for audio streaming over network
 Here is an example of one of the possible setups:
 
 <img src="https://github.com/danilovsergei/pulseaudio_nuc_server/blob/master/wiki/images/pulseaudio-server.png" width="70%" height="70%">
 
-Distribution has features:
+Some of the main features:
 1. It automatically starts Pulseaudio server right after given ISO boots on nuc.
 #TODO: add an explanation for network configuration
 2. Pulseaudio server already configured to:

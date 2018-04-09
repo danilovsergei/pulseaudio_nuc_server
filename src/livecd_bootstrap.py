@@ -157,7 +157,7 @@ class LiveCdBootstrap:
             self.__install_core_packages(chroot)
             self.__install_packages(chroot)
             self.generate_initramfs(chroot)
-            self.generate_usb_archive(chroot)
+            self.generate_usb_image(chroot)
             bootstrap_succeed = True
         except:
             raise
@@ -526,9 +526,9 @@ class RunUtils:
                 logger.info(success_message)
             return (0, out)
         except subprocess.CalledProcessError as e:
-            logger.error('Failed to execute %s: %s', ' '.join(cmd), e.output)
+            logger.error('Failed to execute %s: %s', str_cmd, e.output)
             if fail_on_error:
-                raise Exception('Failed to execute {}: {}'.format(join(cmd), e.output))
+                raise Exception('Failed to execute {}: {}'.format(str_cmd, e.output))
             return (1, e.output)
 
     @staticmethod
@@ -874,41 +874,40 @@ class Main:
             LiveCdBootstrap().install_fresh_stage3()
             return
 
-        if not args.chroot_dir:
+        def get_chroot():
+          if not args.chroot_dir:
             raise Exception(
-                "--chroot_dir must be provided "
-                "or either --use_latest_chroot used")
+              "--chroot_dir must be provided "
+              "or either --use_latest_chroot used")
+          return Chroot(args.chroot_dir)
 
         # add targets using chroot below this point
         bootstrap = LiveCdBootstrap()
-        chroot = Chroot(args.chroot_dir)
-
+	# TODO check dir exists : /usr/lib/grub/x86_64-efi
         if args.generate_initramfs:
-            bootstrap.generate_initramfs(chroot)
+            bootstrap.generate_initramfs(get_chroot())
             return
 
         if args.generate_iso:
-            bootstrap.generate_iso_image(chroot)
+            bootstrap.generate_iso_image(get_chroot())
             return
 
         if args.generate_usb_image_dir \
                 and not args.generate_usb_image_archive:
-            LiveCdBootstrap().generate_usb_image(
-                chroot, generate_archive=False)
+            bootstrap.generate_usb_image(
+                get_chroot(), generate_archive=False)
             return
 
         if args.generate_usb_image_archive:
-            LiveCdBootstrap().generate_usb_image(
-                chroot, generate_archive=True)
+            bootstrap.generate_usb_image(
+                get_chroot(), generate_archive=True)
             return
 
-        
-        bootstrap = LiveCdBootstrap()
         bootstrap.create_livecd()
 
 if __name__ == "__main__":
     main = Main()
     args = main.parse_ags()
-    
+
     logger = LogUtils.getLogger()
     main.execute()

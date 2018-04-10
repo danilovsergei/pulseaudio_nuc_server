@@ -1,5 +1,5 @@
 ## What is pulseaudio nuc server
-Its Gentoo based linux distribution for intel nuc with only purpose to stream audio over network.
+Its Gentoo headless livecd for intel nuc with only purpose to stream audio over network using pulseaudio
 
 It has pulseaudio server installed which is responsible for audio streaming over network\
 Here is an example of one of the possible setups:

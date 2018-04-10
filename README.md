@@ -1,7 +1,7 @@
 ## What is pulseaudio nuc server
 Its Gentoo headless livecd for intel nuc with only purpose to stream audio over network using pulseaudio
 
-It has pulseaudio server installed which is responsible for audio streaming over network\
+Livecd has pulseaudio server installed which is responsible for audio streaming over network either over wifi or ethernet\
 Here is an example of one of the possible setups:
 
 <img src="https://github.com/danilovsergei/pulseaudio_nuc_server/blob/master/wiki/images/pulseaudio-server.png" width="70%" height="70%">

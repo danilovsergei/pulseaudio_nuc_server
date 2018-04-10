@@ -28,9 +28,12 @@ Solution is to use dedicated Intel nuc which is cheap enough to serve as audio c
 Besides that given setup adds more features like streaming over wifi and from other devices.
 
 Intel nuc choosen due to
-* perfect 5.1 audio support
+* perfect linux kernel 5.1 audio support for i915 kernel driver. Many arm chips are bad with 5.1 
 * no need to cross compile for arm. I just build regular x86 64bit image.
+* just powerful and fun to use device :)
 
 ## Downloads
+Checkout [Releases page](https://github.com/danilovsergei/pulseaudio_nuc_server/releases)
 
 ## How to install
+Checkout [How to install to USB flash](https://github.com/danilovsergei/pulseaudio_nuc_server/wiki/How-to-install-to-USB-flash) wiki page

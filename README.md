@@ -1,7 +1,7 @@
 ## What is pulseaudio nuc server
-Its Gentoo based linux distribution for intel nuc with only purpose to stream audio over network.
+Its Gentoo headless livecd for intel nuc with only purpose to stream audio over network using pulseaudio
 
-It has pulseaudio server installed which is responsible for audio streaming over network\
+Livecd has pulseaudio server installed which is responsible for audio streaming over network either over wifi or ethernet\
 Here is an example of one of the possible setups:
 
 <img src="https://github.com/danilovsergei/pulseaudio_nuc_server/blob/master/wiki/images/pulseaudio-server.png" width="70%" height="70%">
@@ -10,7 +10,7 @@ Here is an example of one of the possible setups:
 1. Works both over wifi or ethernet connection depending on provided configuration
 2. Designed for uncompressed multichannel audio
 3. Does not require application support to stream on client side(like chromecast). Sound redirected on system level.
-4. Just plug'n'play after installation. Nuc starts all pulseaudio server and all services automatically on boot.
+4. Just plug'n'play usb with livecd to nuc. Nuc starts all services and pulseaudio server automatically on boot.
 5. Distribution is hard to break. Its just one readonly ISO file fully loaded to ram on boot with write overlayfs on top.
    Which also means its very simple to upgrade
 
@@ -28,9 +28,12 @@ Solution is to use dedicated Intel nuc which is cheap enough to serve as audio c
 Besides that given setup adds more features like streaming over wifi and from other devices.
 
 Intel nuc choosen due to
-* perfect 5.1 audio support
+* perfect linux kernel 5.1 audio support for i915 kernel driver. Many arm chips are bad with 5.1 
 * no need to cross compile for arm. I just build regular x86 64bit image.
+* just powerful and fun to use device :)
 
 ## Downloads
+Checkout [Releases page](https://github.com/danilovsergei/pulseaudio_nuc_server/releases)
 
 ## How to install
+Checkout [How to install to USB flash](https://github.com/danilovsergei/pulseaudio_nuc_server/wiki/How-to-install-to-USB-flash) wiki page

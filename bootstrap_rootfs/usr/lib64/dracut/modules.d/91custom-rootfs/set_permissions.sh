@@ -16,3 +16,9 @@ if [ -d $sys_con_dir ]; then
    find $sys_con_dir -type f -exec chmod 600 '{}' \;
 fi
 
+#its important everything under /home/pulse owned by pulse user
+pulse_dir=/home/pulse
+if [ -d $pulse_dir ]; then
+  chown -R pulse:pulse $pulse_dir
+fi
+

@@ -41,7 +41,7 @@ GRUB_MKIMAGE_MODULES = [
     "efi_uga", "ls", "search", "search_label", "search_fs_uuid",
     "search_fs_file", "gfxterm", "gfxterm_background",
     "gfxterm_menu", "test", "all_video", "loadenv", "exfat",
-    "ext2", "ntfs", "btrfs", "hfsplus", "udf"
+    "ext2", "ntfs", "btrfs", "hfsplus", "udf", "probe"
 ]
 
 class LiveCdBootstrap:

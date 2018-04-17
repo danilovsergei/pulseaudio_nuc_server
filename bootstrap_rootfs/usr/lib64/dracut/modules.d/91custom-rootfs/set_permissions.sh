@@ -6,7 +6,7 @@
 # with wrong  permissions
 # Force correct permissions.
 # Otherwise it will not be possible to connect to nuc.
-nm_dir=/etc/NetworkManager
+nm_dir=$NEWROOT/etc/NetworkManager
 sys_con_dir=$nm_dir"/system-connections"
 if [ -d $nm_dir ]; then
   chown -R root:root $nm_dir
@@ -16,9 +16,13 @@ if [ -d $sys_con_dir ]; then
    find $sys_con_dir -type f -exec chmod 600 '{}' \;
 fi
 
-#its important everything under /home/pulse owned by pulse user
-pulse_dir=/home/pulse
+# Make sure everything under /home/pulse owned by pulse user
+# pulseaudio will not star otherwise.
+# chroot needed since pulse exists only under NEWROOT
+chroot_pulse_dir=/home/pulse
+pulse_dir=$NEWROOT$chroot_pulse_dir
 if [ -d $pulse_dir ]; then
-  chown -R pulse:pulse $pulse_dir
+            out=$(LANG=C chroot "$NEWROOT" chown -R pulse:pulse $chroot_pulse_dir 2>&1)
+            ret=$?
+            info $out
 fi
-

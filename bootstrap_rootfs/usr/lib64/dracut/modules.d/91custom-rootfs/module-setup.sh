@@ -11,7 +11,8 @@ depends() {
 }
 
 install() {
-    inst_hook pre-pivot 01 "$moddir/copy_customrootfs.sh"
-    inst_hook pre-pivot 01 "$moddir/set_permissions.sh"
+    inst_multiple chown find chmod chroot
 
+    inst_hook pre-pivot 01 "$moddir/copy_customrootfs.sh"
+    inst_hook pre-pivot 02 "$moddir/set_permissions.sh"
 }

@@ -9,7 +9,7 @@ Here is an example of one of the possible setups:
 ## Main features:
 1. Works both over wifi or ethernet connection depending on provided configuration
 2. Designed for uncompressed multichannel audio
-3. Does not require application support to stream on client side(like chromecast). Sound redirected on system level.
+3. Does not require application support to stream on client side(like chromecast). Sound redirected on system level using pulseaudio.
 4. Just plug'n'play usb with livecd to nuc. Nuc starts all services and pulseaudio server automatically on boot.
 5. Distribution is hard to break. Its just one readonly ISO file fully loaded to ram on boot with write overlayfs on top.
    Which also means its very simple to upgrade

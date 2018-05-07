@@ -16,6 +16,11 @@ if [ -d $sys_con_dir ]; then
    find $sys_con_dir -type f -exec chmod 600 '{}' \;
 fi
 
+# Make sure dispatcher scripts owned by root
+# to make sure they will be actually executed.
+dispatcher_dir=$nm_dir"/dispatcher.d"
+chown -R root:root $dispatcher_dir
+
 # Make sure everything under /home/pulse owned by pulse user
 # pulseaudio will not star otherwise.
 # chroot needed since pulse exists only under NEWROOT

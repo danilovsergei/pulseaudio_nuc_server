@@ -883,7 +883,7 @@ class Main:
 
         # add targets using chroot below this point
         bootstrap = LiveCdBootstrap()
-	# TODO check dir exists : /usr/lib/grub/x86_64-efi
+        # TODO check dir exists : /usr/lib/grub/x86_64-efi
         if args.generate_initramfs:
             bootstrap.generate_initramfs(get_chroot())
             return
